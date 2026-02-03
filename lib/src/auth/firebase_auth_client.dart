@@ -2,6 +2,38 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+/// Extract user ID from JWT ID token.
+String _extractUserIdFromIdToken(String idToken) {
+  // JWT format: header.payload.signature
+  final parts = idToken.split('.');
+  if (parts.length != 3) {
+    throw FormatException('Invalid JWT format');
+  }
+
+  // Decode base64url payload
+  String payload = parts[1];
+  // Add padding if needed
+  switch (payload.length % 4) {
+    case 2:
+      payload += '==';
+      break;
+    case 3:
+      payload += '=';
+      break;
+  }
+  // Replace URL-safe chars
+  payload = payload.replaceAll('-', '+').replaceAll('_', '/');
+
+  final jsonStr = utf8.decode(base64.decode(payload));
+  final claims = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+  // Try different field names (sub, user_id, uid)
+  return claims['sub'] as String? ??
+      claims['user_id'] as String? ??
+      claims['uid'] as String? ??
+      '';
+}
+
 /// Response from Firebase Auth REST API sign-in endpoints.
 class AuthResult {
   AuthResult({
@@ -44,11 +76,18 @@ class AuthResult {
   }
 
   factory AuthResult.fromJson(Map<String, dynamic> json) {
+    final idToken = json['idToken'] as String;
+
+    // localId may not be present in custom token responses
+    // Extract from JWT if not provided
+    final localId = json['localId'] as String? ??
+        _extractUserIdFromIdToken(idToken);
+
     return AuthResult(
-      idToken: json['idToken'] as String,
+      idToken: idToken,
       refreshToken: json['refreshToken'] as String?,
       expiresIn: int.parse(json['expiresIn'] as String),
-      localId: json['localId'] as String,
+      localId: localId,
       email: json['email'] as String?,
       isNewUser: json['isNewUser'] == true,
     );
