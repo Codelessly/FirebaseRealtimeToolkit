@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 class AuthResult {
   AuthResult({
     required this.idToken,
-    required this.refreshToken,
+    this.refreshToken,
     required this.expiresIn,
     required this.localId,
     this.email,
@@ -17,7 +17,8 @@ class AuthResult {
   final String idToken;
 
   /// The refresh token - use to get new ID tokens.
-  final String refreshToken;
+  /// May be null for some auth methods like custom token signin.
+  final String? refreshToken;
 
   /// Token expiration time in seconds (typically 3600).
   final int expiresIn;
@@ -45,7 +46,7 @@ class AuthResult {
   factory AuthResult.fromJson(Map<String, dynamic> json) {
     return AuthResult(
       idToken: json['idToken'] as String,
-      refreshToken: json['refreshToken'] as String,
+      refreshToken: json['refreshToken'] as String?,
       expiresIn: int.parse(json['expiresIn'] as String),
       localId: json['localId'] as String,
       email: json['email'] as String?,

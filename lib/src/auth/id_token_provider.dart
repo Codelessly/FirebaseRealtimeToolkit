@@ -53,7 +53,7 @@ class IdTokenProvider implements AccessTokenProvider {
     required this.apiKey,
     required this.projectId,
     required String idToken,
-    required String refreshToken,
+    String? refreshToken,
     required int expiresInSeconds,
     required this.userId,
     FirebaseAuthClient? authClient,
@@ -74,7 +74,7 @@ class IdTokenProvider implements AccessTokenProvider {
 
   final FirebaseAuthClient _authClient;
   String _currentIdToken;
-  String _refreshToken;
+  String? _refreshToken;
   DateTime _tokenExpiresAt;
 
   /// Buffer time before expiration to trigger refresh (default 5 minutes).
@@ -182,12 +182,12 @@ class IdTokenProvider implements AccessTokenProvider {
   /// Create a provider from existing tokens.
   ///
   /// Use this when you have saved tokens from a previous session.
-  /// The tokens will be refreshed automatically if expired.
+  /// The tokens will be refreshed automatically if expired (requires refreshToken).
   static Future<IdTokenProvider> fromSavedTokens({
     required String apiKey,
     required String projectId,
     required String idToken,
-    required String refreshToken,
+    String? refreshToken,
     required String userId,
     DateTime? expiresAt,
     FirebaseAuthClient? authClient,
@@ -231,13 +231,22 @@ class IdTokenProvider implements AccessTokenProvider {
   }
 
   /// Get the current refresh token (for saving session state).
-  String get refreshTokenForSaving => _refreshToken;
+  /// Returns null if no refresh token is available (e.g., custom token auth).
+  String? get refreshTokenForSaving => _refreshToken;
 
   /// Get the token expiration time (for saving session state).
   DateTime get expiresAt => _tokenExpiresAt;
 
   Future<void> _refreshIdToken() async {
-    final result = await _authClient.refreshToken(_refreshToken);
+    if (_refreshToken == null) {
+      throw StateError(
+        'Cannot refresh token: No refresh token available. '
+        'This auth method (e.g., custom token) does not support token refresh. '
+        'Re-authenticate to get a new ID token.',
+      );
+    }
+
+    final result = await _authClient.refreshToken(_refreshToken!);
 
     _currentIdToken = result.idToken;
     _refreshToken = result.refreshToken;
