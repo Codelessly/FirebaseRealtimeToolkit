@@ -493,6 +493,18 @@ client.listenDocument(path).listen(
 - [ ] RTDB transaction support via REST API
 - [ ] Anonymous/custom auth token generation
 
+## Real-World Usage Example
+
+For a detailed case study showing how the Firebase Realtime Toolkit compares to traditional REST polling approaches, see [EXAMPLE.md](EXAMPLE.md).
+
+The case study analyzes the Flutter Rebound storyboard's cloud sync implementation and demonstrates:
+- Architecture comparison (REST polling vs SSE streaming)
+- Performance metrics and benefits
+- Code examples for migration
+- Hybrid architecture recommendations
+
+---
+
 ## Related Documentation
 
 - [Firebase RTDB REST API](https://firebase.google.com/docs/database/rest/retrieve-data#section-rest-streaming)
@@ -505,4 +517,6 @@ client.listenDocument(path).listen(
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-02-03 | 1.2.0 | Moved case study to separate EXAMPLE.md file |
+| 2026-02-03 | 1.1.0 | Added real-world Storyboard Cloud Sync case study with REST vs SSE comparison |
 | 2026-02-03 | 1.0.0 | Initial architecture documentation |

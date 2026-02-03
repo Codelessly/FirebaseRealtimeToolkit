@@ -13,10 +13,10 @@ Lightweight realtime streaming clients for **Firebase Realtime Database (RTDB)**
 | **Firebase Realtime Toolkit** | **~500KB** | http, grpc, protobuf, googleapis_auth |
 
 Perfect for:
-- Lightweight Flutter apps that only need realtime data streaming
-- Dart CLI tools and servers that need Firebase realtime updates
-- Reducing app bundle size when full Firebase features aren't needed
-- Server-side Dart applications
+- **Flutter apps** - RTDB realtime streaming with user authentication
+- **Dart CLI tools** - Admin scripts with service account access
+- **Backend services** - Server-side Dart applications with Firestore access
+- **Reducing bundle size** - When full Firebase SDK is overkill
 
 ## Features
 
@@ -65,9 +65,22 @@ void main() async {
 
 ### Firestore Document Listener
 
+> **⚠️ SECURITY WARNING - SERVER-SIDE ONLY**
+>
+> The `FirestoreListenClient` with `ServiceAccountTokenProvider` is designed for **server-side applications only** (backend services, CLI tools, CI/CD pipelines).
+>
+> **NEVER use service accounts in client applications** (Flutter mobile/web/desktop apps). Service accounts contain private keys that grant admin-level access to your entire Firebase project. If embedded in a client app, anyone can extract the credentials and:
+> - Read/write/delete ALL data in your project
+> - Impersonate any user
+> - Rack up unlimited Firebase bills
+> - Compromise your entire infrastructure
+>
+> **For client apps:** Use Firebase RTDB with user authentication tokens instead (see [Authenticated RTDB Access](#authenticated-rtdb-access)).
+
 ```dart
 import 'package:firebase_realtime_toolkit/firebase_realtime_toolkit.dart';
 
+// ⚠️ SERVER-SIDE ONLY - DO NOT use in Flutter apps
 void main() async {
   final tokenProvider = ServiceAccountTokenProvider(
     '/path/to/service-account.json',
@@ -222,26 +235,75 @@ class SseEvent {
 }
 ```
 
+## Security Best Practices
+
+### ⚠️ Service Account Security
+
+| Feature | Safe for Client Apps? | Safe for Server Apps? |
+|---------|----------------------|----------------------|
+| **RTDB with user auth token** | ✅ YES | ✅ YES |
+| **Generic SSE with user token** | ✅ YES | ✅ YES |
+| **Firestore with service account** | ❌ **NEVER** | ✅ YES |
+
+**Why service accounts are dangerous in client apps:**
+- Service accounts contain private keys with admin access
+- Anyone can decompile/extract credentials from your app
+- Compromised credentials = complete project access
+- Cannot be revoked without replacing everywhere
+
+**Safe Alternatives for Client Apps:**
+
+```dart
+// ✅ SAFE: RTDB with Firebase Auth token
+final client = RtdbSseClient(baseUri);
+final stream = client.listen(
+  '/users/$userId/data',
+  authToken: firebaseUserIdToken, // From Firebase Auth SDK
+);
+
+// ✅ SAFE: Custom SSE endpoint with user authentication
+final client = SseClient();
+final stream = client.listen(
+  Uri.parse('https://your-backend.com/stream'),
+  headers: {'Authorization': 'Bearer $userToken'},
+);
+```
+
+**Server-Side Only:**
+
+```dart
+// ✅ SAFE: Server-side Dart application
+final tokenProvider = ServiceAccountTokenProvider(
+  '/path/to/service-account.json',
+);
+final client = FirestoreListenClient(
+  projectId: 'your-project-id',
+  tokenProvider: tokenProvider,
+);
+```
+
 ## Platform Support
 
 | Platform | RTDB SSE | Generic SSE | Firestore Listen |
 |----------|----------|-------------|------------------|
-| Dart VM (CLI) | ✅ | ✅ | ✅ |
-| Flutter Android | ✅ | ✅ | ✅ |
-| Flutter iOS | ✅ | ✅ | ✅ |
-| Flutter macOS | ✅ | ✅ | ✅ |
-| Flutter Windows | ✅ | ✅ | ✅ |
-| Flutter Linux | ✅ | ✅ | ✅ |
-| Flutter Web | ✅ | ✅* | ❌** |
+| Dart VM (CLI) | ✅ | ✅ | ✅ (server-side only) |
+| Flutter Android | ✅ | ✅ | ❌ (service account risk) |
+| Flutter iOS | ✅ | ✅ | ❌ (service account risk) |
+| Flutter macOS | ✅ | ✅ | ❌ (service account risk) |
+| Flutter Windows | ✅ | ✅ | ❌ (service account risk) |
+| Flutter Linux | ✅ | ✅ | ❌ (service account risk) |
+| Flutter Web | ✅ | ✅* | ❌ (not supported) |
 
 \* Web SSE uses browser's `EventSource` API and cannot use custom headers.
-\** Firestore gRPC is not supported in browsers; use Firebase JS SDK instead.
+\*\* Firestore gRPC requires service accounts, which should NEVER be embedded in client applications.
 
 ## CLI Tools
 
-The package includes command-line tools for testing:
+The package includes command-line tools for testing and admin tasks.
 
 ### rtdb_sse
+
+Test RTDB streaming with user authentication:
 
 ```bash
 dart run firebase_realtime_toolkit:rtdb_sse \
@@ -253,6 +315,8 @@ dart run firebase_realtime_toolkit:rtdb_sse \
 
 ### firestore_listen
 
+**Admin tool - requires service account (server-side only):**
+
 ```bash
 dart run firebase_realtime_toolkit:firestore_listen \
   --service-account /path/to/service-account.json \
@@ -262,6 +326,8 @@ dart run firebase_realtime_toolkit:firestore_listen \
 ```
 
 ### firestore_write
+
+**Admin tool - requires service account (server-side only):**
 
 ```bash
 dart run firebase_realtime_toolkit:firestore_write \
@@ -330,6 +396,7 @@ client.listen('/path').listen(
 |---------|---------------------------|----------------------|
 | Bundle Size | ~500KB | ~2-5MB |
 | Realtime Streaming | ✅ | ✅ |
+| Client-Side Firestore | ❌ (security risk) | ✅ (secure) |
 | Offline Support | ❌ | ✅ |
 | Local Caching | ❌ | ✅ |
 | Transactions | ❌ | ✅ |
@@ -339,12 +406,14 @@ client.listen('/path').listen(
 | Web Support | RTDB only | ✅ |
 
 **Use this toolkit when:**
-- You only need realtime data streaming
+- You only need RTDB realtime streaming in client apps
 - Bundle size is critical
-- Building server-side Dart applications
+- Building server-side Dart applications with Firestore
+- Building CLI tools for Firebase admin tasks
 - Want to avoid Firebase SDK initialization overhead
 
 **Use official Firebase SDK when:**
+- You need Firestore in client applications
 - You need offline support
 - You need complex queries
 - You need transactions
@@ -353,6 +422,7 @@ client.listen('/path').listen(
 ## Documentation
 
 - [Architecture Guide](docs/ARCHITECTURE.md) - Detailed technical architecture
+- [Usage Example](docs/EXAMPLE.md) - Real-world Storyboard case study with REST vs SSE comparison
 - [Firebase RTDB REST API](https://firebase.google.com/docs/database/rest/retrieve-data#section-rest-streaming)
 - [Firestore gRPC API](https://cloud.google.com/firestore/docs/reference/rpc/google.firestore.v1)
 
