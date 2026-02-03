@@ -63,19 +63,60 @@ void main() async {
 }
 ```
 
-### Firestore Document Listener
+### Firestore Document Listener (Client-Side with User Auth) ✨
+
+Listen to Firestore documents **without service accounts** using Firebase Authentication:
+
+```dart
+import 'package:firebase_realtime_toolkit/firebase_realtime_toolkit.dart';
+
+void main() async {
+  // Sign in anonymously (or with email/password)
+  final tokenProvider = await IdTokenProvider.signInAnonymously(
+    apiKey: 'your-firebase-web-api-key', // From Firebase Console
+    projectId: 'your-project-id',
+  );
+
+  final client = FirestoreListenClient(
+    projectId: 'your-project-id',
+    tokenProvider: tokenProvider,
+  );
+
+  // Listen to documents - no service account needed!
+  final subscription = client.listenDocument('public/status').listen((response) {
+    if (response.hasDocumentChange()) {
+      print('Document changed: ${response.documentChange.document.fields}');
+    }
+  });
+
+  // When done
+  await subscription.cancel();
+  await client.close();
+  tokenProvider.close();
+}
+```
+
+**Prerequisites:**
+1. Enable Anonymous Authentication in Firebase Console
+2. Configure Firestore Security Rules:
+   ```javascript
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /public/{document=**} {
+         allow read: if request.auth != null;
+       }
+     }
+   }
+   ```
+
+### Firestore Document Listener (Server-Side with Service Account)
 
 > **⚠️ SECURITY WARNING - SERVER-SIDE ONLY**
 >
-> The `FirestoreListenClient` with `ServiceAccountTokenProvider` is designed for **server-side applications only** (backend services, CLI tools, CI/CD pipelines).
+> The `ServiceAccountTokenProvider` is designed for **server-side applications only** (backend services, CLI tools, CI/CD pipelines).
 >
-> **NEVER use service accounts in client applications** (Flutter mobile/web/desktop apps). Service accounts contain private keys that grant admin-level access to your entire Firebase project. If embedded in a client app, anyone can extract the credentials and:
-> - Read/write/delete ALL data in your project
-> - Impersonate any user
-> - Rack up unlimited Firebase bills
-> - Compromise your entire infrastructure
->
-> **For client apps:** Use Firebase RTDB with user authentication tokens instead (see [Authenticated RTDB Access](#authenticated-rtdb-access)).
+> **NEVER use service accounts in client applications** (Flutter mobile/web/desktop apps). Service accounts contain private keys that grant admin-level access to your entire Firebase project.
 
 ```dart
 import 'package:firebase_realtime_toolkit/firebase_realtime_toolkit.dart';
@@ -202,8 +243,54 @@ Abstract interface for providing authentication tokens.
 abstract class AccessTokenProvider {
   Future<AccessToken> getAccessToken();
 }
+```
 
-// Built-in implementation for service accounts
+### IdTokenProvider (Client-Side)
+
+Provides Firebase ID tokens for client-side authentication using Firebase Auth REST API.
+
+```dart
+// Sign in anonymously
+final provider = await IdTokenProvider.signInAnonymously(
+  apiKey: 'your-firebase-web-api-key',
+  projectId: 'your-project-id',
+);
+
+// Sign in with email/password
+final provider = await IdTokenProvider.signInWithEmailPassword(
+  apiKey: 'your-firebase-web-api-key',
+  projectId: 'your-project-id',
+  email: 'user@example.com',
+  password: 'password123',
+);
+
+// Sign in with custom token (from admin SDK)
+final provider = await IdTokenProvider.signInWithCustomToken(
+  apiKey: 'your-firebase-web-api-key',
+  projectId: 'your-project-id',
+  customToken: customTokenFromServer,
+);
+
+// Restore from saved session
+final provider = await IdTokenProvider.fromSavedTokens(
+  apiKey: apiKey,
+  projectId: projectId,
+  idToken: savedIdToken,
+  refreshToken: savedRefreshToken,
+  userId: savedUserId,
+);
+```
+
+**Features:**
+- Automatic token refresh (tokens expire after 1 hour)
+- Save/restore session state
+- Works with Firestore security rules
+
+### ServiceAccountTokenProvider (Server-Side)
+
+For server-side applications with service account credentials.
+
+```dart
 class ServiceAccountTokenProvider implements AccessTokenProvider {
   ServiceAccountTokenProvider(
     String serviceAccountJsonPath, {
@@ -237,12 +324,13 @@ class SseEvent {
 
 ## Security Best Practices
 
-### ⚠️ Service Account Security
+### ⚠️ Authentication Security
 
 | Feature | Safe for Client Apps? | Safe for Server Apps? |
 |---------|----------------------|----------------------|
 | **RTDB with user auth token** | ✅ YES | ✅ YES |
 | **Generic SSE with user token** | ✅ YES | ✅ YES |
+| **Firestore with IdTokenProvider** | ✅ YES | ✅ YES |
 | **Firestore with service account** | ❌ **NEVER** | ✅ YES |
 
 **Why service accounts are dangerous in client apps:**
@@ -254,6 +342,17 @@ class SseEvent {
 **Safe Alternatives for Client Apps:**
 
 ```dart
+// ✅ SAFE: Firestore with IdTokenProvider (anonymous auth)
+final tokenProvider = await IdTokenProvider.signInAnonymously(
+  apiKey: 'your-firebase-web-api-key',
+  projectId: 'your-project-id',
+);
+final client = FirestoreListenClient(
+  projectId: 'your-project-id',
+  tokenProvider: tokenProvider,
+);
+final stream = client.listenDocument('public/status');
+
 // ✅ SAFE: RTDB with Firebase Auth token
 final client = RtdbSseClient(baseUri);
 final stream = client.listen(
@@ -286,16 +385,16 @@ final client = FirestoreListenClient(
 
 | Platform | RTDB SSE | Generic SSE | Firestore Listen |
 |----------|----------|-------------|------------------|
-| Dart VM (CLI) | ✅ | ✅ | ✅ (server-side only) |
-| Flutter Android | ✅ | ✅ | ❌ (service account risk) |
-| Flutter iOS | ✅ | ✅ | ❌ (service account risk) |
-| Flutter macOS | ✅ | ✅ | ❌ (service account risk) |
-| Flutter Windows | ✅ | ✅ | ❌ (service account risk) |
-| Flutter Linux | ✅ | ✅ | ❌ (service account risk) |
-| Flutter Web | ✅ | ✅* | ❌ (not supported) |
+| Dart VM (CLI) | ✅ | ✅ | ✅ |
+| Flutter Android | ✅ | ✅ | ✅ (with IdTokenProvider) |
+| Flutter iOS | ✅ | ✅ | ✅ (with IdTokenProvider) |
+| Flutter macOS | ✅ | ✅ | ✅ (with IdTokenProvider) |
+| Flutter Windows | ✅ | ✅ | ✅ (with IdTokenProvider) |
+| Flutter Linux | ✅ | ✅ | ✅ (with IdTokenProvider) |
+| Flutter Web | ✅ | ✅* | ❌ (gRPC not supported) |
 
 \* Web SSE uses browser's `EventSource` API and cannot use custom headers.
-\*\* Firestore gRPC requires service accounts, which should NEVER be embedded in client applications.
+\*\* Firestore on Web requires the official Firebase SDK due to gRPC limitations in browsers.
 
 ## CLI Tools
 
@@ -312,6 +411,21 @@ dart run firebase_realtime_toolkit:rtdb_sse \
   --auth YOUR_AUTH_TOKEN \
   --duration 60
 ```
+
+### firestore_listen_anonymous
+
+**Client-side tool - uses Firebase Auth (no service account needed):**
+
+```bash
+dart run firebase_realtime_toolkit:firestore_listen_anonymous \
+  --api-key YOUR_FIREBASE_WEB_API_KEY \
+  --project my-project-id \
+  --document public/status
+```
+
+Prerequisites:
+1. Enable Anonymous Authentication in Firebase Console
+2. Configure Firestore Security Rules to allow anonymous access
 
 ### firestore_listen
 
@@ -396,7 +510,7 @@ client.listen('/path').listen(
 |---------|---------------------------|----------------------|
 | Bundle Size | ~500KB | ~2-5MB |
 | Realtime Streaming | ✅ | ✅ |
-| Client-Side Firestore | ❌ (security risk) | ✅ (secure) |
+| Client-Side Firestore | ✅ (with IdTokenProvider) | ✅ |
 | Offline Support | ❌ | ✅ |
 | Local Caching | ❌ | ✅ |
 | Transactions | ❌ | ✅ |
@@ -406,6 +520,7 @@ client.listen('/path').listen(
 | Web Support | RTDB only | ✅ |
 
 **Use this toolkit when:**
+- You need lightweight Firestore realtime listening with minimal bundle size
 - You only need RTDB realtime streaming in client apps
 - Bundle size is critical
 - Building server-side Dart applications with Firestore
@@ -413,10 +528,10 @@ client.listen('/path').listen(
 - Want to avoid Firebase SDK initialization overhead
 
 **Use official Firebase SDK when:**
-- You need Firestore in client applications
 - You need offline support
 - You need complex queries
 - You need transactions
+- You need Firestore on web
 - You need the full Firebase feature set
 
 ## Documentation

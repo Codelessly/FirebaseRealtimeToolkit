@@ -27,3 +27,4 @@ executables:
   rtdb_sse: rtdb_sse
   firestore_listen: firestore_listen
   firestore_write: firestore_write
+  firestore_listen_anonymous: firestore_listen_anonymous
