@@ -179,43 +179,6 @@ Firebase:  ██████████ $490/mo  ⭐ COMPETITIVE
 ✅ **You have budget constraints**
 ✅ **You prefer bandwidth-based pricing**
 
-### Choose Pusher When:
-
-✅ You need zero-setup managed service
-✅ You want strong multi-platform SDKs
-✅ Your message volume is low (< 1M/day)
-✅ Budget is not a concern
-
-### Choose PubNub When:
-
-✅ You want MAU-based pricing with everything included
-✅ You need 99.999% uptime SLA
-✅ You require HIPAA/SOC 2 compliance out of the box
-✅ Your budget allows $500-5,000+/month
-
-### Choose Ably When:
-
-✅ You need guaranteed message delivery with ordering
-✅ You require multi-protocol support (MQTT, WebSockets, SSE)
-✅ You need flexible pricing (per-minute or MAU)
-✅ You can afford $500-2,000+/month
-
-### Choose Supabase When:
-
-✅ You need a **full backend platform** (not just realtime)
-✅ You prefer PostgreSQL over NoSQL
-✅ You need row-level security
-✅ You want open source with self-hosting
-
-### Choose Appwrite When:
-
-✅ You need **unlimited realtime messages** included
-✅ You want a full backend platform
-✅ Your message volume is extremely high
-✅ You're at medium-large scale (50K-200K+ users)
-
----
-
 ## 📊 Real-World Example: Chat App
 
 **App Profile:**
