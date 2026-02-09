@@ -9,3 +9,4 @@ export 'src/auth/id_token_provider.dart';
 export 'src/rtdb/rtdb_sse_client.dart';
 export 'src/sse/sse_client.dart';
 export 'src/firestore/firestore_listen_client.dart';
+export 'src/firestore/firestore_query_listener.dart';

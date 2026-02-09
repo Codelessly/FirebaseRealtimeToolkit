@@ -22,6 +22,7 @@ Perfect for:
 
 - **RTDB Realtime Streaming** - Subscribe to Firebase Realtime Database paths via REST SSE
 - **Firestore Document Listening** - Subscribe to Firestore document changes via gRPC
+- **Firestore Collection Queries** - Query collections with filters, ordering, and limits
 - **Generic SSE Client** - Use with any Server-Sent Events endpoint
 - **Cross-Platform** - Works on Dart VM, Flutter mobile, desktop, and web (RTDB only)
 - **Minimal Dependencies** - No Firebase SDK required
@@ -144,6 +145,43 @@ void main() async {
 }
 ```
 
+### Firestore Collection Query Listener (Server-Side)
+
+Query collections with filters, ordering, and limits:
+
+```dart
+import 'package:firebase_realtime_toolkit/firebase_realtime_toolkit.dart';
+
+void main() async {
+  final tokenProvider = ServiceAccountTokenProvider('/path/to/service-account.json');
+
+  final client = FirestoreQueryListener(
+    projectId: 'your-project-id',
+    tokenProvider: tokenProvider,
+  );
+
+  // Listen to filtered collection
+  final subscription = client.listenQuery(
+    collectionPath: 'tasks',
+    filters: [
+      QueryFilter(field: 'status', operator: FilterOperator.equal, value: 'pending'),
+    ],
+    orderBy: [
+      QueryOrder(field: 'priority', descending: true),
+    ],
+    limit: 50,
+  ).listen((response) {
+    if (response.hasDocumentChange()) {
+      print('Task changed: ${response.documentChange.document.fields}');
+    }
+  });
+
+  // When done
+  await subscription.cancel();
+  await client.close();
+}
+```
+
 ### Generic SSE Client
 
 ```dart
@@ -234,6 +272,93 @@ class FirestoreListenClient {
 - `databaseId` - Firestore database ID (usually `(default)`)
 - `tokenProvider` - Token provider for authentication
 - `documentPath` - Document path (e.g., `collection/docId`)
+
+### FirestoreQueryListener
+
+Client for Firestore **collection** queries with filters, ordering, and limits.
+
+```dart
+class FirestoreQueryListener {
+  FirestoreQueryListener({
+    required String projectId,
+    String databaseId = '(default)',
+    required AccessTokenProvider tokenProvider,
+    ClientChannel? channel,
+  });
+
+  Stream<ListenResponse> listenQuery({
+    required String collectionPath,
+    List<QueryFilter>? filters,
+    List<QueryOrder>? orderBy,
+    int? limit,
+    int targetId = 1,
+  });
+
+  Future<void> close();
+}
+
+// Query filter
+class QueryFilter {
+  const QueryFilter({
+    required String field,
+    required FilterOperator operator,
+    required dynamic value,
+  });
+}
+
+// Filter operators
+enum FilterOperator {
+  equal, notEqual, lessThan, lessThanOrEqual,
+  greaterThan, greaterThanOrEqual, arrayContains,
+  inArray, arrayContainsAny, notIn,
+}
+
+// Query ordering
+class QueryOrder {
+  const QueryOrder({
+    required String field,
+    bool descending = false,
+  });
+}
+```
+
+**Example:**
+
+```dart
+import 'package:firebase_realtime_toolkit/firebase_realtime_toolkit.dart';
+
+void main() async {
+  final tokenProvider = ServiceAccountTokenProvider('/path/to/service-account.json');
+
+  final client = FirestoreQueryListener(
+    projectId: 'your-project-id',
+    tokenProvider: tokenProvider,
+  );
+
+  // Query with filters and ordering
+  final subscription = client.listenQuery(
+    collectionPath: 'tasks',
+    filters: [
+      QueryFilter(field: 'status', operator: FilterOperator.equal, value: 'pending'),
+      QueryFilter(field: 'priority', operator: FilterOperator.greaterThan, value: 5),
+    ],
+    orderBy: [
+      QueryOrder(field: 'priority', descending: true),
+      QueryOrder(field: 'createdAt', descending: false),
+    ],
+    limit: 100,
+  ).listen((response) {
+    if (response.hasDocumentChange()) {
+      final doc = response.documentChange.document;
+      print('Document: ${doc.name}, Fields: ${doc.fields}');
+    }
+  });
+
+  // When done
+  await subscription.cancel();
+  await client.close();
+}
+```
 
 ### AccessTokenProvider
 
