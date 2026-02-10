@@ -101,13 +101,16 @@ class FirestoreQueryListener {
       }
 
       final parentPath = _getParentPath(collectionPath);
+      final parent = parentPath.isEmpty
+          ? '$_databasePath/documents'
+          : '$_databasePath/documents/$parentPath';
 
       final request = fs.ListenRequest(
         database: _databasePath,
         addTarget: fs.Target(
           targetId: targetId,
           query: fs.Target_QueryTarget(
-            parent: '$_databasePath/documents/$parentPath',
+            parent: parent,
             structuredQuery: structuredQuery,
           ),
         ),
